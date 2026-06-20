@@ -153,12 +153,13 @@
         <div class="map-layout">
           <div class="map-frame-wrap">
             <iframe id="courseMapFrame" title="選択中コースのGoogleマップ" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
+            <div id="mapPreview" class="map-preview"></div>
           </div>
           <aside class="map-panel">
             <h3 id="mapCourseName">コース地図</h3>
             <p id="mapSummary"></p>
             <a id="googleMapLink" class="button primary" target="_blank" rel="noopener">Googleマップで経路を開く</a>
-            <p class="map-fallback">地図が表示されない場合は、上のボタンからGoogleマップを開いてください。</p>
+            <p class="map-fallback">Googleの埋め込み表示はAPIキーが必要です。通常は上のボタンからGoogleマップを開いてください。</p>
             <div id="mapStops" class="map-stops"></div>
           </aside>
         </div>

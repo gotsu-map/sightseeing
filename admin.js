@@ -16,6 +16,15 @@ let backendMode = "local";
 let backendClient = null;
 let courses = [];
 let reviews = [];
+let isAdminAuthenticated = false;
+
+function requireAdmin() {
+  if (isAdminAuthenticated) return true;
+  adminMessage.textContent = "管理コードでログインしてください。";
+  adminPanel.hidden = true;
+  adminLoginBox.hidden = false;
+  return false;
+}
 
 function setupBackend() {
   const config = window.GOTSU_BACKEND || {};
@@ -132,6 +141,7 @@ function renderAdmin() {
 }
 
 async function openAdmin() {
+  isAdminAuthenticated = true;
   adminPanel.hidden = false;
   adminLoginBox.hidden = true;
   adminMessage.textContent = "";
@@ -144,7 +154,6 @@ adminLoginButton.addEventListener("click", () => {
     adminMessage.textContent = "管理コードが違います。";
     return;
   }
-  localStorage.setItem("gotsuAdminUnlocked", "true");
   openAdmin().catch((error) => {
     adminMessage.textContent = "データの読み込みに失敗しました。";
     console.error(error);
@@ -152,6 +161,7 @@ adminLoginButton.addEventListener("click", () => {
 });
 
 refreshDataButton.addEventListener("click", () => {
+  if (!requireAdmin()) return;
   loadData().then(renderAdmin).catch((error) => {
     adminMessage.textContent = "再読み込みに失敗しました。";
     console.error(error);
@@ -159,6 +169,7 @@ refreshDataButton.addEventListener("click", () => {
 });
 
 adminCourseList.addEventListener("click", (event) => {
+  if (!requireAdmin()) return;
   const button = event.target.closest("[data-delete-course]");
   if (!button) return;
   const [removed] = courses.splice(Number(button.dataset.deleteCourse), 1);
@@ -168,6 +179,7 @@ adminCourseList.addEventListener("click", (event) => {
 });
 
 adminReviewList.addEventListener("click", (event) => {
+  if (!requireAdmin()) return;
   const button = event.target.closest("[data-delete-review]");
   if (!button) return;
   const [removed] = reviews.splice(Number(button.dataset.deleteReview), 1);
@@ -177,6 +189,7 @@ adminReviewList.addEventListener("click", (event) => {
 });
 
 exportDataButton.addEventListener("click", () => {
+  if (!requireAdmin()) return;
   adminDataBox.value = JSON.stringify({
     exportedAt: new Date().toISOString(),
     courses,
@@ -185,6 +198,7 @@ exportDataButton.addEventListener("click", () => {
 });
 
 importDataButton.addEventListener("click", async () => {
+  if (!requireAdmin()) return;
   try {
     const data = JSON.parse(adminDataBox.value);
     if (!Array.isArray(data.courses) || !Array.isArray(data.reviews)) {
@@ -208,6 +222,7 @@ importDataButton.addEventListener("click", async () => {
 });
 
 clearAllUserDataButton.addEventListener("click", async () => {
+  if (!requireAdmin()) return;
   const ok = window.confirm("ユーザー作成コースと投稿レビューをすべて削除します。よろしいですか？");
   if (!ok) return;
   const oldCourses = [...courses];
@@ -226,7 +241,4 @@ clearAllUserDataButton.addEventListener("click", async () => {
 });
 
 setupBackend();
-if (localStorage.getItem("gotsuAdminUnlocked") === "true") {
-  openAdmin().catch(console.error);
-}
-
+localStorage.removeItem("gotsuAdminUnlocked");

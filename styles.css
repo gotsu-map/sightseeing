@@ -343,6 +343,58 @@ h3 {
   filter: saturate(0.9) contrast(1.04);
 }
 
+#courseMapFrame[hidden] {
+  display: none;
+}
+
+.map-preview {
+  display: grid;
+  gap: 16px;
+  min-height: 460px;
+  align-content: center;
+  padding: clamp(22px, 5vw, 44px);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.05)),
+    radial-gradient(circle at 80% 10%, rgba(240, 189, 87, 0.3), transparent 30%);
+}
+
+.map-preview h3,
+.map-preview p {
+  margin: 0;
+}
+
+.map-preview p {
+  color: rgba(255, 255, 255, 0.74);
+}
+
+.map-preview-route {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.map-preview-stop {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(16, 32, 23, 0.24);
+}
+
+.map-preview-stop span {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #f0bd57;
+  color: #102017;
+  font-weight: 900;
+}
+
 .map-panel {
   display: grid;
   align-content: start;

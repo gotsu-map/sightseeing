@@ -121,6 +121,7 @@ const timeline = document.querySelector("#timeline");
 const selectedCourseName = document.querySelector("#selectedCourseName");
 const selectedCourseSummary = document.querySelector("#selectedCourseSummary");
 const courseMapFrame = document.querySelector("#courseMapFrame");
+const mapPreview = document.querySelector("#mapPreview");
 const googleMapLink = document.querySelector("#googleMapLink");
 const mapCourseName = document.querySelector("#mapCourseName");
 const mapSummary = document.querySelector("#mapSummary");
@@ -154,7 +155,7 @@ const importDataButton = document.querySelector("#importDataButton");
 let allCards = [];
 let builderCards = [];
 let selectedCourse = defaultCourses[0];
-let adminUnlocked = localStorage.getItem("gotsuAdminUnlocked") === "true";
+let adminUnlocked = false;
 let backendMode = "local";
 let backendClient = null;
 
@@ -334,17 +335,57 @@ function buildGoogleDirectionsUrl(course) {
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
 
+function buildGoogleEmbedUrl(course) {
+  const key = window.GOTSU_BACKEND?.googleMapsEmbedApiKey;
+  if (!key) return "";
+
+  const stops = course.steps.map(placeQuery);
+  if (!stops.length) {
+    return `https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(key)}&q=${encodeURIComponent("江津市 島根県")}`;
+  }
+  if (stops.length === 1) {
+    return `https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(key)}&q=${encodeURIComponent(stops[0])}`;
+  }
+
+  const params = new URLSearchParams({
+    key,
+    origin: stops[0],
+    destination: stops[stops.length - 1],
+    mode: "driving"
+  });
+  const waypoints = stops.slice(1, -1).slice(0, 8).join("|");
+  if (waypoints) params.set("waypoints", waypoints);
+  return `https://www.google.com/maps/embed/v1/directions?${params.toString()}`;
+}
+
 function renderMap() {
-  if (!courseMapFrame || !googleMapLink || !mapCourseName || !mapSummary || !mapStops) return;
-  const firstStep = selectedCourse.steps[0];
-  const query = firstStep ? placeQuery(firstStep) : "江津市 島根県";
+  if (!courseMapFrame || !mapPreview || !googleMapLink || !mapCourseName || !mapSummary || !mapStops) return;
   const directionsUrl = buildGoogleDirectionsUrl(selectedCourse);
-  courseMapFrame.src = selectedCourse.steps.length > 1
-    ? `${directionsUrl}&output=embed`
-    : `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
+  const embedUrl = buildGoogleEmbedUrl(selectedCourse);
+  if (embedUrl) {
+    courseMapFrame.hidden = false;
+    courseMapFrame.src = embedUrl;
+    mapPreview.hidden = true;
+  } else {
+    courseMapFrame.hidden = true;
+    courseMapFrame.removeAttribute("src");
+    mapPreview.hidden = false;
+    mapPreview.innerHTML = `
+      <h3>Googleマップ経路プレビュー</h3>
+      <p>Googleマップの埋め込み表示にはAPIキーが必要です。このサイト内では訪問順を表示し、実際の経路はGoogleマップで開きます。</p>
+      <div class="map-preview-route">
+        ${selectedCourse.steps.map((step, index) => `
+          <div class="map-preview-stop">
+            <span>${index + 1}</span>
+            <strong>${step[1]}</strong>
+          </div>
+        `).join("")}
+      </div>
+    `;
+  }
   googleMapLink.href = directionsUrl;
   mapCourseName.textContent = selectedCourse.name;
-  mapSummary.textContent = "地点名からGoogleマップ検索を作成しています。公開前に実際の場所と経路を確認してください。";
+  mapSummary.textContent = "地点名からGoogleマップ経路を作成しています。ボタンを押すとGoogleマップで経路を確認できます。";
   mapStops.innerHTML = selectedCourse.steps.map((step, index) => `
     <article class="map-stop">
       <span>${index + 1}</span>
@@ -712,6 +753,7 @@ if (adminLoginButton && adminCourseList && adminReviewList && exportDataButton &
 }
 
 async function init() {
+  localStorage.removeItem("gotsuAdminUnlocked");
   setupBackend();
   const response = await fetch("cards.json");
   allCards = await response.json();
