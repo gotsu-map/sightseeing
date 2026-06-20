@@ -338,8 +338,11 @@ function renderMap() {
   if (!courseMapFrame || !googleMapLink || !mapCourseName || !mapSummary || !mapStops) return;
   const firstStep = selectedCourse.steps[0];
   const query = firstStep ? placeQuery(firstStep) : "江津市 島根県";
-  courseMapFrame.src = `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
-  googleMapLink.href = buildGoogleDirectionsUrl(selectedCourse);
+  const directionsUrl = buildGoogleDirectionsUrl(selectedCourse);
+  courseMapFrame.src = selectedCourse.steps.length > 1
+    ? `${directionsUrl}&output=embed`
+    : `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
+  googleMapLink.href = directionsUrl;
   mapCourseName.textContent = selectedCourse.name;
   mapSummary.textContent = "地点名からGoogleマップ検索を作成しています。公開前に実際の場所と経路を確認してください。";
   mapStops.innerHTML = selectedCourse.steps.map((step, index) => `
@@ -447,6 +450,7 @@ function renderAdmin() {
 }
 
 function openAdminPanel() {
+  if (!adminPanel || !adminLoginBox || !adminMessage) return;
   adminUnlocked = true;
   localStorage.setItem("gotsuAdminUnlocked", "true");
   adminPanel.hidden = false;
@@ -579,6 +583,7 @@ courseGrid.addEventListener("click", (event) => {
   selectedCourse = getAllCourses().find((course) => course.id === card.dataset.course);
   renderCourses(document.querySelector(".filter.is-active").dataset.filter);
   renderTimeline();
+  document.querySelector("#map").scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
 courseSelect.addEventListener("change", () => {
@@ -625,84 +630,86 @@ selectedCards.addEventListener("click", (event) => {
   renderBuilderPreview();
 });
 
-adminLoginButton.addEventListener("click", () => {
-  if (adminPass.value === "gotsu-admin") {
-    openAdminPanel();
-    return;
-  }
-  adminMessage.textContent = "管理コードが違います。試作では gotsu-admin です。";
-});
-
-adminCourseList.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-admin-delete-course]");
-  if (!button) return;
-  const courses = getUserCourses();
-  const [removed] = courses.splice(Number(button.dataset.adminDeleteCourse), 1);
-  saveUserCourses(courses, { syncRemote: false });
-  deleteRemoteCourse(removed).catch(console.error);
-  selectedCourse = getAllCourses()[0];
-  renderCourseOptions();
-  renderCourses(document.querySelector(".filter.is-active").dataset.filter);
-  renderTimeline();
-  renderAdmin();
-});
-
-adminReviewList.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-admin-delete-review]");
-  if (!button) return;
-  const reviews = getSavedReviews();
-  const [removed] = reviews.splice(Number(button.dataset.adminDeleteReview), 1);
-  saveReviews(reviews, { syncRemote: false });
-  deleteRemoteReview(removed).catch(console.error);
-  renderReviews();
-  renderAdmin();
-});
-
-exportDataButton.addEventListener("click", () => {
-  adminDataBox.value = JSON.stringify({
-    exportedAt: new Date().toISOString(),
-    courses: getUserCourses(),
-    reviews: getSavedReviews()
-  }, null, 2);
-});
-
-importDataButton.addEventListener("click", () => {
-  try {
-    const data = JSON.parse(adminDataBox.value);
-    if (!Array.isArray(data.courses) || !Array.isArray(data.reviews)) {
-      throw new Error("Invalid data shape");
+if (adminLoginButton && adminCourseList && adminReviewList && exportDataButton && importDataButton && clearAllUserDataButton) {
+  adminLoginButton.addEventListener("click", () => {
+    if (adminPass.value === "gotsu-admin") {
+      openAdminPanel();
+      return;
     }
-    saveUserCourses(data.courses, { syncRemote: false });
-    saveReviews(data.reviews, { syncRemote: false });
-    if (backendMode === "supabase") {
-      data.courses.forEach((course) => upsertRemoteCourse(course).catch(console.error));
-      data.reviews.forEach((review) => upsertRemoteReview(review).catch(console.error));
-    }
+    adminMessage.textContent = "管理コードが違います。試作では gotsu-admin です。";
+  });
+
+  adminCourseList.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-admin-delete-course]");
+    if (!button) return;
+    const courses = getUserCourses();
+    const [removed] = courses.splice(Number(button.dataset.adminDeleteCourse), 1);
+    saveUserCourses(courses, { syncRemote: false });
+    deleteRemoteCourse(removed).catch(console.error);
     selectedCourse = getAllCourses()[0];
+    renderCourseOptions();
+    renderCourses(document.querySelector(".filter.is-active").dataset.filter);
+    renderTimeline();
+    renderAdmin();
+  });
+
+  adminReviewList.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-admin-delete-review]");
+    if (!button) return;
+    const reviews = getSavedReviews();
+    const [removed] = reviews.splice(Number(button.dataset.adminDeleteReview), 1);
+    saveReviews(reviews, { syncRemote: false });
+    deleteRemoteReview(removed).catch(console.error);
+    renderReviews();
+    renderAdmin();
+  });
+
+  exportDataButton.addEventListener("click", () => {
+    adminDataBox.value = JSON.stringify({
+      exportedAt: new Date().toISOString(),
+      courses: getUserCourses(),
+      reviews: getSavedReviews()
+    }, null, 2);
+  });
+
+  importDataButton.addEventListener("click", () => {
+    try {
+      const data = JSON.parse(adminDataBox.value);
+      if (!Array.isArray(data.courses) || !Array.isArray(data.reviews)) {
+        throw new Error("Invalid data shape");
+      }
+      saveUserCourses(data.courses, { syncRemote: false });
+      saveReviews(data.reviews, { syncRemote: false });
+      if (backendMode === "supabase") {
+        data.courses.forEach((course) => upsertRemoteCourse(course).catch(console.error));
+        data.reviews.forEach((review) => upsertRemoteReview(review).catch(console.error));
+      }
+      selectedCourse = getAllCourses()[0];
+      renderCourseOptions();
+      renderCourses(document.querySelector(".filter.is-active").dataset.filter);
+      renderTimeline();
+      renderReviews();
+      renderAdmin();
+      adminMessage.textContent = "JSONから復元しました。";
+    } catch (error) {
+      adminMessage.textContent = "JSONの形式を確認してください。";
+    }
+  });
+
+  clearAllUserDataButton.addEventListener("click", () => {
+    const ok = window.confirm("ユーザー作成コースと投稿レビューをすべて削除します。よろしいですか？");
+    if (!ok) return;
+    clearRemoteData().catch(console.error);
+    saveUserCourses([], { syncRemote: false });
+    saveReviews([], { syncRemote: false });
+    selectedCourse = defaultCourses[0];
     renderCourseOptions();
     renderCourses(document.querySelector(".filter.is-active").dataset.filter);
     renderTimeline();
     renderReviews();
     renderAdmin();
-    adminMessage.textContent = "JSONから復元しました。";
-  } catch (error) {
-    adminMessage.textContent = "JSONの形式を確認してください。";
-  }
-});
-
-clearAllUserDataButton.addEventListener("click", () => {
-  const ok = window.confirm("ユーザー作成コースと投稿レビューをすべて削除します。よろしいですか？");
-  if (!ok) return;
-  clearRemoteData().catch(console.error);
-  saveUserCourses([], { syncRemote: false });
-  saveReviews([], { syncRemote: false });
-  selectedCourse = defaultCourses[0];
-  renderCourseOptions();
-  renderCourses(document.querySelector(".filter.is-active").dataset.filter);
-  renderTimeline();
-  renderReviews();
-  renderAdmin();
-});
+  });
+}
 
 async function init() {
   setupBackend();
