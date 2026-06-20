@@ -469,6 +469,72 @@ textarea {
   padding: 18px;
 }
 
+.admin-section {
+  background: #f3f0e7;
+}
+
+.admin-login,
+.admin-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: clamp(18px, 4vw, 24px);
+}
+
+.admin-login {
+  display: grid;
+  gap: 14px;
+  max-width: 520px;
+}
+
+.admin-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.admin-card {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-list {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.admin-item h4 {
+  margin: 0 0 4px;
+  line-height: 1.35;
+}
+
+.admin-item p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.danger {
+  border-color: #b94936;
+  color: #b94936;
+}
+
 .stars {
   color: var(--gold);
   font-weight: 900;
@@ -485,6 +551,7 @@ footer {
   .hero,
   .review-layout,
   .builder-layout,
+  .admin-grid,
   .form-row {
     grid-template-columns: 1fr;
   }

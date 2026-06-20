@@ -111,6 +111,36 @@ gotsu-admin
 
 注意: この管理コードは静的HTML上の簡易ロックであり、本当の認証ではありません。GitHub Pagesだけで全ユーザーの投稿を安全に一元管理することはできません。
 
+## GitHub Pagesで動的更新する
+
+GitHub Pages単体ではサーバー側の保存ができないため、全ユーザー共通でコース・レビューを保存するには外部DBが必要です。
+
+このサイトはSupabaseに対応しています。
+
+設定ファイル:
+
+```text
+config.js
+docs/config.js
+```
+
+DB作成SQL:
+
+```text
+supabase_schema.sql
+docs/supabase_schema.sql
+```
+
+手順:
+
+1. Supabaseでプロジェクトを作成
+2. SQL Editorで `supabase_schema.sql` を実行
+3. `config.js` の `provider` を `supabase` にする
+4. `supabaseUrl` と `supabaseAnonKey` を入力
+5. GitHubへアップロード
+
+詳しくは [DYNAMIC_BACKEND.md](DYNAMIC_BACKEND.md) を見てください。
+
 本番運用で全ユーザーの投稿を共有する場合は、次のいずれかに置き換える想定です。
 
 - Googleフォーム + スプレッドシート

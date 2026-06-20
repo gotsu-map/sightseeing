@@ -133,10 +133,101 @@ const clearBuilderButton = document.querySelector("#clearBuilderButton");
 const selectedCards = document.querySelector("#selectedCards");
 const builderStats = document.querySelector("#builderStats");
 const builderMessage = document.querySelector("#builderMessage");
+const adminLoginBox = document.querySelector("#adminLoginBox");
+const adminPass = document.querySelector("#adminPass");
+const adminLoginButton = document.querySelector("#adminLoginButton");
+const adminMessage = document.querySelector("#adminMessage");
+const adminPanel = document.querySelector("#adminPanel");
+const adminStats = document.querySelector("#adminStats");
+const adminCourseList = document.querySelector("#adminCourseList");
+const adminReviewList = document.querySelector("#adminReviewList");
+const exportDataButton = document.querySelector("#exportDataButton");
+const clearAllUserDataButton = document.querySelector("#clearAllUserDataButton");
+const adminDataBox = document.querySelector("#adminDataBox");
+const importDataButton = document.querySelector("#importDataButton");
 
 let allCards = [];
 let builderCards = [];
 let selectedCourse = defaultCourses[0];
+let adminUnlocked = localStorage.getItem("gotsuAdminUnlocked") === "true";
+let backendMode = "local";
+let backendClient = null;
+
+function setupBackend() {
+  const config = window.GOTSU_BACKEND || {};
+  const hasSupabaseConfig = config.provider === "supabase"
+    && config.supabaseUrl
+    && config.supabaseAnonKey
+    && window.supabase;
+
+  if (!hasSupabaseConfig) {
+    backendMode = "local";
+    return;
+  }
+
+  backendClient = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+  backendMode = "supabase";
+}
+
+function normalizeRemoteRows(rows) {
+  return (rows || []).map((row) => row.payload).filter(Boolean);
+}
+
+async function loadRemoteData() {
+  if (backendMode !== "supabase") return;
+
+  const [courseResult, reviewResult] = await Promise.all([
+    backendClient.from("courses").select("payload").order("created_at", { ascending: false }),
+    backendClient.from("reviews").select("payload").order("created_at", { ascending: false })
+  ]);
+
+  if (courseResult.error) throw courseResult.error;
+  if (reviewResult.error) throw reviewResult.error;
+
+  saveUserCourses(normalizeRemoteRows(courseResult.data), { syncRemote: false });
+  saveReviews(normalizeRemoteRows(reviewResult.data), { syncRemote: false });
+}
+
+async function upsertRemoteCourse(course) {
+  if (backendMode !== "supabase") return;
+  const { error } = await backendClient.from("courses").upsert({
+    id: course.id,
+    payload: course,
+    updated_at: new Date().toISOString()
+  });
+  if (error) throw error;
+}
+
+async function upsertRemoteReview(review) {
+  if (backendMode !== "supabase") return;
+  const { error } = await backendClient.from("reviews").upsert({
+    id: review.id,
+    payload: review,
+    updated_at: new Date().toISOString()
+  });
+  if (error) throw error;
+}
+
+async function deleteRemoteCourse(course) {
+  if (backendMode !== "supabase" || !course?.id) return;
+  const { error } = await backendClient.from("courses").delete().eq("id", course.id);
+  if (error) throw error;
+}
+
+async function deleteRemoteReview(review) {
+  if (backendMode !== "supabase" || !review?.id) return;
+  const { error } = await backendClient.from("reviews").delete().eq("id", review.id);
+  if (error) throw error;
+}
+
+async function clearRemoteData() {
+  if (backendMode !== "supabase") return;
+  const [courses, reviews] = [getUserCourses(), getSavedReviews()];
+  await Promise.all([
+    ...courses.map((course) => deleteRemoteCourse(course)),
+    ...reviews.map((review) => deleteRemoteReview(review))
+  ]);
+}
 
 function yen(value) {
   return Number(value || 0).toLocaleString("ja-JP") + "円";
@@ -161,8 +252,11 @@ function getUserCourses() {
   return JSON.parse(localStorage.getItem("gotsuUserCourses") || "[]");
 }
 
-function saveUserCourses(courses) {
+function saveUserCourses(courses, options = {}) {
   localStorage.setItem("gotsuUserCourses", JSON.stringify(courses));
+  if (options.syncRemote !== false && backendMode === "supabase") {
+    courses.forEach((course) => upsertRemoteCourse(course).catch(console.error));
+  }
 }
 
 function getAllCourses() {
@@ -170,8 +264,19 @@ function getAllCourses() {
 }
 
 function getReviews() {
-  const saved = JSON.parse(localStorage.getItem("gotsuReviews") || "[]");
+  const saved = getSavedReviews();
   return [...saved, ...defaultReviews];
+}
+
+function getSavedReviews() {
+  return JSON.parse(localStorage.getItem("gotsuReviews") || "[]");
+}
+
+function saveReviews(reviews, options = {}) {
+  localStorage.setItem("gotsuReviews", JSON.stringify(reviews));
+  if (options.syncRemote !== false && backendMode === "supabase") {
+    reviews.forEach((review) => upsertRemoteReview(review).catch(console.error));
+  }
 }
 
 function summarizeCards(cards) {
@@ -256,6 +361,50 @@ function renderReviews() {
   `).join("");
 }
 
+function renderAdmin() {
+  if (!adminPanel || adminPanel.hidden) return;
+
+  const courses = getUserCourses();
+  const reviews = getSavedReviews();
+  adminStats.innerHTML = `
+    <span class="pill">保存先 ${backendMode === "supabase" ? "Supabase" : "ブラウザ内"}</span>
+    <span class="pill">ユーザー作成コース ${courses.length}件</span>
+    <span class="pill">投稿レビュー ${reviews.length}件</span>
+  `;
+
+  adminCourseList.innerHTML = courses.length ? courses.map((course, index) => `
+    <article class="admin-item">
+      <div>
+        <h4>${course.name}</h4>
+        <p>${course.time} / ${course.cost} / 平均還元率 ${course.averageReturnRate || "-"}%</p>
+        <p>${course.summary}</p>
+      </div>
+      <button class="button ghost danger" type="button" data-admin-delete-course="${index}">削除</button>
+    </article>
+  `).join("") : `<p class="empty">ユーザー作成コースはまだありません。</p>`;
+
+  adminReviewList.innerHTML = reviews.length ? reviews.map((review, index) => `
+    <article class="admin-item">
+      <div>
+        <h4>${review.course}</h4>
+        <p>${review.date || "日付未設定"} / ${review.name || "匿名"} / 評価 ${review.rating || "-"} / ${review.party || "-"}</p>
+        <p>${review.good || ""}</p>
+        ${review.tips ? `<p>注意点: ${review.tips}</p>` : ""}
+      </div>
+      <button class="button ghost danger" type="button" data-admin-delete-review="${index}">削除</button>
+    </article>
+  `).join("") : `<p class="empty">投稿レビューはまだありません。</p>`;
+}
+
+function openAdminPanel() {
+  adminUnlocked = true;
+  localStorage.setItem("gotsuAdminUnlocked", "true");
+  adminPanel.hidden = false;
+  adminLoginBox.hidden = true;
+  adminMessage.textContent = "";
+  renderAdmin();
+}
+
 function renderCategoryOptions() {
   const categories = [...new Set(allCards.map((card) => card.category).filter(Boolean))];
   cardCategoryFilter.innerHTML = [
@@ -321,7 +470,7 @@ function addSelectedCard() {
   renderBuilderPreview();
 }
 
-function saveBuiltCourse(event) {
+async function saveBuiltCourse(event) {
   event.preventDefault();
   if (!builderCards.length) {
     builderMessage.textContent = "カードを1枚以上選んでください。";
@@ -347,7 +496,13 @@ function saveBuiltCourse(event) {
 
   const courses = getUserCourses();
   courses.unshift(course);
-  saveUserCourses(courses);
+  saveUserCourses(courses, { syncRemote: false });
+  try {
+    await upsertRemoteCourse(course);
+  } catch (error) {
+    builderMessage.textContent = "外部DBへの保存に失敗しました。ローカルには保存されています。";
+    console.error(error);
+  }
   selectedCourse = course;
   builderCards = [];
   builderForm.reset();
@@ -355,6 +510,7 @@ function saveBuiltCourse(event) {
   renderCourseOptions();
   renderCourses(document.querySelector(".filter.is-active").dataset.filter);
   renderTimeline();
+  renderAdmin();
   builderMessage.textContent = "コースを保存しました。日帰りコース案とレビュー投稿フォームに追加されています。";
   document.querySelector("#courses").scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -386,13 +542,20 @@ reviewForm.addEventListener("submit", (event) => {
   const form = new FormData(reviewForm);
   const review = Object.fromEntries(form.entries());
   review.recommend = form.getAll("recommend");
-  const saved = JSON.parse(localStorage.getItem("gotsuReviews") || "[]");
+  review.id = `review-${Date.now()}`;
+  review.createdAt = new Date().toISOString();
+  const saved = getSavedReviews();
   saved.unshift(review);
-  localStorage.setItem("gotsuReviews", JSON.stringify(saved));
+  saveReviews(saved, { syncRemote: false });
+  upsertRemoteReview(review).catch((error) => {
+    formMessage.textContent = "外部DBへの保存に失敗しました。ローカルには保存されています。";
+    console.error(error);
+  });
   reviewForm.reset();
   courseSelect.value = selectedCourse.name;
   formMessage.textContent = "レビューを保存しました。下の一覧に追加されています。";
   renderReviews();
+  renderAdmin();
 });
 
 cardCategoryFilter.addEventListener("change", renderCardOptions);
@@ -412,9 +575,90 @@ selectedCards.addEventListener("click", (event) => {
   renderBuilderPreview();
 });
 
+adminLoginButton.addEventListener("click", () => {
+  if (adminPass.value === "gotsu-admin") {
+    openAdminPanel();
+    return;
+  }
+  adminMessage.textContent = "管理コードが違います。試作では gotsu-admin です。";
+});
+
+adminCourseList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-admin-delete-course]");
+  if (!button) return;
+  const courses = getUserCourses();
+  const [removed] = courses.splice(Number(button.dataset.adminDeleteCourse), 1);
+  saveUserCourses(courses, { syncRemote: false });
+  deleteRemoteCourse(removed).catch(console.error);
+  selectedCourse = getAllCourses()[0];
+  renderCourseOptions();
+  renderCourses(document.querySelector(".filter.is-active").dataset.filter);
+  renderTimeline();
+  renderAdmin();
+});
+
+adminReviewList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-admin-delete-review]");
+  if (!button) return;
+  const reviews = getSavedReviews();
+  const [removed] = reviews.splice(Number(button.dataset.adminDeleteReview), 1);
+  saveReviews(reviews, { syncRemote: false });
+  deleteRemoteReview(removed).catch(console.error);
+  renderReviews();
+  renderAdmin();
+});
+
+exportDataButton.addEventListener("click", () => {
+  adminDataBox.value = JSON.stringify({
+    exportedAt: new Date().toISOString(),
+    courses: getUserCourses(),
+    reviews: getSavedReviews()
+  }, null, 2);
+});
+
+importDataButton.addEventListener("click", () => {
+  try {
+    const data = JSON.parse(adminDataBox.value);
+    if (!Array.isArray(data.courses) || !Array.isArray(data.reviews)) {
+      throw new Error("Invalid data shape");
+    }
+    saveUserCourses(data.courses, { syncRemote: false });
+    saveReviews(data.reviews, { syncRemote: false });
+    if (backendMode === "supabase") {
+      data.courses.forEach((course) => upsertRemoteCourse(course).catch(console.error));
+      data.reviews.forEach((review) => upsertRemoteReview(review).catch(console.error));
+    }
+    selectedCourse = getAllCourses()[0];
+    renderCourseOptions();
+    renderCourses(document.querySelector(".filter.is-active").dataset.filter);
+    renderTimeline();
+    renderReviews();
+    renderAdmin();
+    adminMessage.textContent = "JSONから復元しました。";
+  } catch (error) {
+    adminMessage.textContent = "JSONの形式を確認してください。";
+  }
+});
+
+clearAllUserDataButton.addEventListener("click", () => {
+  const ok = window.confirm("ユーザー作成コースと投稿レビューをすべて削除します。よろしいですか？");
+  if (!ok) return;
+  clearRemoteData().catch(console.error);
+  saveUserCourses([], { syncRemote: false });
+  saveReviews([], { syncRemote: false });
+  selectedCourse = defaultCourses[0];
+  renderCourseOptions();
+  renderCourses(document.querySelector(".filter.is-active").dataset.filter);
+  renderTimeline();
+  renderReviews();
+  renderAdmin();
+});
+
 async function init() {
+  setupBackend();
   const response = await fetch("cards.json");
   allCards = await response.json();
+  await loadRemoteData();
   renderCategoryOptions();
   renderCardOptions();
   renderBuilderPreview();
@@ -422,6 +666,7 @@ async function init() {
   renderCourses();
   renderTimeline();
   renderReviews();
+  if (adminUnlocked) openAdminPanel();
 }
 
 init().catch((error) => {
