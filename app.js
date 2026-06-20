@@ -179,8 +179,36 @@ function normalizeRemoteRows(rows) {
   return (rows || []).map((row) => row.payload).filter(Boolean);
 }
 
+function createId(prefix) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function ensureItemId(item, prefix) {
+  return {
+    ...item,
+    id: item.id || createId(prefix),
+    createdAt: item.createdAt || new Date().toISOString()
+  };
+}
+
+function mergeSharedItems(remoteItems, localItems, prefix) {
+  const map = new Map();
+  [...remoteItems, ...localItems].forEach((item) => {
+    const normalized = ensureItemId(item, prefix);
+    map.set(normalized.id, normalized);
+  });
+  return [...map.values()].sort((a, b) => {
+    const dateA = new Date(a.createdAt || 0).getTime();
+    const dateB = new Date(b.createdAt || 0).getTime();
+    return dateB - dateA;
+  });
+}
+
 async function loadRemoteData() {
   if (backendMode !== "supabase") return;
+
+  const localCourses = getUserCourses().map((course) => ensureItemId(course, "user"));
+  const localReviews = getSavedReviews().map((review) => ensureItemId(review, "review"));
 
   const [courseResult, reviewResult] = await Promise.all([
     backendClient.from("courses").select("payload").order("created_at", { ascending: false }),
@@ -190,15 +218,24 @@ async function loadRemoteData() {
   if (courseResult.error) throw courseResult.error;
   if (reviewResult.error) throw reviewResult.error;
 
-  saveUserCourses(normalizeRemoteRows(courseResult.data), { syncRemote: false });
-  saveReviews(normalizeRemoteRows(reviewResult.data), { syncRemote: false });
+  const courses = mergeSharedItems(normalizeRemoteRows(courseResult.data), localCourses, "user");
+  const reviews = mergeSharedItems(normalizeRemoteRows(reviewResult.data), localReviews, "review");
+
+  saveUserCourses(courses, { syncRemote: false });
+  saveReviews(reviews, { syncRemote: false });
+
+  await Promise.all([
+    ...courses.map((course) => upsertRemoteCourse(course)),
+    ...reviews.map((review) => upsertRemoteReview(review))
+  ]);
 }
 
 async function upsertRemoteCourse(course) {
   if (backendMode !== "supabase") return;
+  const item = ensureItemId(course, "user");
   const { error } = await backendClient.from("courses").upsert({
-    id: course.id,
-    payload: course,
+    id: item.id,
+    payload: item,
     updated_at: new Date().toISOString()
   });
   if (error) throw error;
@@ -206,9 +243,10 @@ async function upsertRemoteCourse(course) {
 
 async function upsertRemoteReview(review) {
   if (backendMode !== "supabase") return;
+  const item = ensureItemId(review, "review");
   const { error } = await backendClient.from("reviews").upsert({
-    id: review.id,
-    payload: review,
+    id: item.id,
+    payload: item,
     updated_at: new Date().toISOString()
   });
   if (error) throw error;
@@ -255,13 +293,14 @@ function minutesToText(totalMinutes) {
 }
 
 function getUserCourses() {
-  return JSON.parse(localStorage.getItem("gotsuUserCourses") || "[]");
+  return JSON.parse(localStorage.getItem("gotsuUserCourses") || "[]").map((course) => ensureItemId(course, "user"));
 }
 
 function saveUserCourses(courses, options = {}) {
-  localStorage.setItem("gotsuUserCourses", JSON.stringify(courses));
+  const normalized = courses.map((course) => ensureItemId(course, "user"));
+  localStorage.setItem("gotsuUserCourses", JSON.stringify(normalized));
   if (options.syncRemote !== false && backendMode === "supabase") {
-    courses.forEach((course) => upsertRemoteCourse(course).catch(console.error));
+    normalized.forEach((course) => upsertRemoteCourse(course).catch(console.error));
   }
 }
 
@@ -275,13 +314,14 @@ function getReviews() {
 }
 
 function getSavedReviews() {
-  return JSON.parse(localStorage.getItem("gotsuReviews") || "[]");
+  return JSON.parse(localStorage.getItem("gotsuReviews") || "[]").map((review) => ensureItemId(review, "review"));
 }
 
 function saveReviews(reviews, options = {}) {
-  localStorage.setItem("gotsuReviews", JSON.stringify(reviews));
+  const normalized = reviews.map((review) => ensureItemId(review, "review"));
+  localStorage.setItem("gotsuReviews", JSON.stringify(normalized));
   if (options.syncRemote !== false && backendMode === "supabase") {
-    reviews.forEach((review) => upsertRemoteReview(review).catch(console.error));
+    normalized.forEach((review) => upsertRemoteReview(review).catch(console.error));
   }
 }
 
@@ -576,7 +616,8 @@ async function saveBuiltCourse(event) {
   const summary = summarizeCards(builderCards);
   const theme = form.get("newCourseTheme");
   const course = {
-    id: `user-${Date.now()}`,
+    id: createId("user"),
+    createdAt: new Date().toISOString(),
     source: "ユーザー作成",
     name: form.get("newCourseName").trim(),
     tags: [...new Set([theme, "ユーザー作成"])],
@@ -638,7 +679,7 @@ reviewForm.addEventListener("submit", (event) => {
   const form = new FormData(reviewForm);
   const review = Object.fromEntries(form.entries());
   review.recommend = form.getAll("recommend");
-  review.id = `review-${Date.now()}`;
+  review.id = createId("review");
   review.createdAt = new Date().toISOString();
   const saved = getSavedReviews();
   saved.unshift(review);

@@ -58,30 +58,64 @@ function normalizeRows(rows) {
   return (rows || []).map((row) => row.payload).filter(Boolean);
 }
 
+function createId(prefix) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function ensureItemId(item, prefix) {
+  return {
+    ...item,
+    id: item.id || createId(prefix),
+    createdAt: item.createdAt || new Date().toISOString()
+  };
+}
+
+function mergeSharedItems(remoteItems, localItems, prefix) {
+  const map = new Map();
+  [...remoteItems, ...localItems].forEach((item) => {
+    const normalized = ensureItemId(item, prefix);
+    map.set(normalized.id, normalized);
+  });
+  return [...map.values()].sort((a, b) => {
+    const dateA = new Date(a.createdAt || 0).getTime();
+    const dateB = new Date(b.createdAt || 0).getTime();
+    return dateB - dateA;
+  });
+}
+
 async function loadData() {
   if (backendMode === "supabase") {
+    const localCourses = getLocalCourses().map((course) => ensureItemId(course, "user"));
+    const localReviews = getLocalReviews().map((review) => ensureItemId(review, "review"));
     const [courseResult, reviewResult] = await Promise.all([
       backendClient.from("courses").select("payload").order("created_at", { ascending: false }),
       backendClient.from("reviews").select("payload").order("created_at", { ascending: false })
     ]);
     if (courseResult.error) throw courseResult.error;
     if (reviewResult.error) throw reviewResult.error;
-    courses = normalizeRows(courseResult.data);
-    reviews = normalizeRows(reviewResult.data);
+    courses = mergeSharedItems(normalizeRows(courseResult.data), localCourses, "user");
+    reviews = mergeSharedItems(normalizeRows(reviewResult.data), localReviews, "review");
     saveLocalCourses(courses);
     saveLocalReviews(reviews);
+    await Promise.all([
+      ...courses.map(upsertCourse),
+      ...reviews.map(upsertReview)
+    ]);
     return;
   }
 
-  courses = getLocalCourses();
-  reviews = getLocalReviews();
+  courses = getLocalCourses().map((course) => ensureItemId(course, "user"));
+  reviews = getLocalReviews().map((review) => ensureItemId(review, "review"));
+  saveLocalCourses(courses);
+  saveLocalReviews(reviews);
 }
 
 async function upsertCourse(course) {
   if (backendMode !== "supabase") return;
+  const item = ensureItemId(course, "user");
   const { error } = await backendClient.from("courses").upsert({
-    id: course.id,
-    payload: course,
+    id: item.id,
+    payload: item,
     updated_at: new Date().toISOString()
   });
   if (error) throw error;
@@ -89,9 +123,10 @@ async function upsertCourse(course) {
 
 async function upsertReview(review) {
   if (backendMode !== "supabase") return;
+  const item = ensureItemId(review, "review");
   const { error } = await backendClient.from("reviews").upsert({
-    id: review.id,
-    payload: review,
+    id: item.id,
+    payload: item,
     updated_at: new Date().toISOString()
   });
   if (error) throw error;

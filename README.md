@@ -141,6 +141,29 @@ docs/supabase_schema.sql
 
 詳しくは [DYNAMIC_BACKEND.md](DYNAMIC_BACKEND.md) を見てください。
 
+## Googleマップをページ内に埋め込む
+
+APIキーなしの場合、サイト内には経路プレビューを表示し、`Googleマップで経路を開く` ボタンから外部Googleマップを開きます。
+
+ページ内にGoogleマップ経路を埋め込みたい場合は、Google Cloudで `Maps Embed API` を有効化し、APIキーを作成して `config.js` に設定します。
+
+```js
+window.GOTSU_BACKEND = {
+  provider: "local",
+  supabaseUrl: "",
+  supabaseAnonKey: "",
+  googleMapsEmbedApiKey: "YOUR_GOOGLE_MAPS_EMBED_API_KEY"
+};
+```
+
+GitHub Pagesで公開する場合は、APIキーのHTTPリファラー制限に次を登録してください。
+
+```text
+https://gotsu-map.github.io/sightseeing/*
+```
+
+注意: Google Maps Platform側で課金設定が必要になる場合があります。APIキーは公開HTMLに含まれるため、必ず利用制限をかけてください。
+
 本番運用で全ユーザーの投稿を共有する場合は、次のいずれかに置き換える想定です。
 
 - Googleフォーム + スプレッドシート
