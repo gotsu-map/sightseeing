@@ -15,6 +15,7 @@
         <a href="#route">行程</a>
         <a href="#review">レビュー投稿</a>
         <a href="#reviews">レビュー</a>
+        <a href="#admin">管理</a>
       </nav>
     </header>
 
@@ -246,6 +247,56 @@
           <p>作成したコースにもレビューが残っていくイメージです。</p>
         </div>
         <div id="reviewList" class="review-list"></div>
+      </section>
+
+      <section id="admin" class="section admin-section">
+        <div class="section-heading">
+          <p class="eyebrow">Admin console</p>
+          <h2>管理者画面</h2>
+          <p>
+            ユーザーが作成したコースとレビューを確認・削除できます。
+            この試作ではブラウザ内保存データを管理します。本番ではログイン認証とデータベースに置き換えます。
+          </p>
+        </div>
+
+        <div class="admin-login" id="adminLoginBox">
+          <label>
+            管理コード
+            <input id="adminPass" type="password" placeholder="gotsu-admin">
+          </label>
+          <button class="button primary" id="adminLoginButton" type="button">管理画面を開く</button>
+          <p class="form-message" id="adminMessage" role="status"></p>
+        </div>
+
+        <div id="adminPanel" class="admin-panel" hidden>
+          <div id="adminStats" class="builder-stats"></div>
+
+          <div class="admin-grid">
+            <section class="admin-card">
+              <h3>ユーザー作成コース</h3>
+              <div id="adminCourseList" class="admin-list"></div>
+            </section>
+
+            <section class="admin-card">
+              <h3>投稿レビュー</h3>
+              <div id="adminReviewList" class="admin-list"></div>
+            </section>
+          </div>
+
+          <section class="admin-card">
+            <h3>データのバックアップ・復元</h3>
+            <p class="empty">エクスポートしたJSONは、別ブラウザへの移行や簡易バックアップに使えます。</p>
+            <div class="builder-actions">
+              <button class="button ghost" id="exportDataButton" type="button">JSONを表示</button>
+              <button class="button ghost danger" id="clearAllUserDataButton" type="button">ユーザー投稿を全削除</button>
+            </div>
+            <label>
+              JSONデータ
+              <textarea id="adminDataBox" rows="8" placeholder="エクスポート結果、またはインポートしたいJSONを貼り付け"></textarea>
+            </label>
+            <button class="button primary" id="importDataButton" type="button">JSONから復元</button>
+          </section>
+        </div>
       </section>
     </main>
 

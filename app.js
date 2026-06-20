@@ -133,10 +133,23 @@ const clearBuilderButton = document.querySelector("#clearBuilderButton");
 const selectedCards = document.querySelector("#selectedCards");
 const builderStats = document.querySelector("#builderStats");
 const builderMessage = document.querySelector("#builderMessage");
+const adminLoginBox = document.querySelector("#adminLoginBox");
+const adminPass = document.querySelector("#adminPass");
+const adminLoginButton = document.querySelector("#adminLoginButton");
+const adminMessage = document.querySelector("#adminMessage");
+const adminPanel = document.querySelector("#adminPanel");
+const adminStats = document.querySelector("#adminStats");
+const adminCourseList = document.querySelector("#adminCourseList");
+const adminReviewList = document.querySelector("#adminReviewList");
+const exportDataButton = document.querySelector("#exportDataButton");
+const clearAllUserDataButton = document.querySelector("#clearAllUserDataButton");
+const adminDataBox = document.querySelector("#adminDataBox");
+const importDataButton = document.querySelector("#importDataButton");
 
 let allCards = [];
 let builderCards = [];
 let selectedCourse = defaultCourses[0];
+let adminUnlocked = localStorage.getItem("gotsuAdminUnlocked") === "true";
 
 function yen(value) {
   return Number(value || 0).toLocaleString("ja-JP") + "円";
@@ -170,8 +183,16 @@ function getAllCourses() {
 }
 
 function getReviews() {
-  const saved = JSON.parse(localStorage.getItem("gotsuReviews") || "[]");
+  const saved = getSavedReviews();
   return [...saved, ...defaultReviews];
+}
+
+function getSavedReviews() {
+  return JSON.parse(localStorage.getItem("gotsuReviews") || "[]");
+}
+
+function saveReviews(reviews) {
+  localStorage.setItem("gotsuReviews", JSON.stringify(reviews));
 }
 
 function summarizeCards(cards) {
@@ -254,6 +275,49 @@ function renderReviews() {
       ${review.tips ? `<p><strong>注意点:</strong> ${review.tips}</p>` : ""}
     </article>
   `).join("");
+}
+
+function renderAdmin() {
+  if (!adminPanel || adminPanel.hidden) return;
+
+  const courses = getUserCourses();
+  const reviews = getSavedReviews();
+  adminStats.innerHTML = `
+    <span class="pill">ユーザー作成コース ${courses.length}件</span>
+    <span class="pill">投稿レビュー ${reviews.length}件</span>
+  `;
+
+  adminCourseList.innerHTML = courses.length ? courses.map((course, index) => `
+    <article class="admin-item">
+      <div>
+        <h4>${course.name}</h4>
+        <p>${course.time} / ${course.cost} / 平均還元率 ${course.averageReturnRate || "-"}%</p>
+        <p>${course.summary}</p>
+      </div>
+      <button class="button ghost danger" type="button" data-admin-delete-course="${index}">削除</button>
+    </article>
+  `).join("") : `<p class="empty">ユーザー作成コースはまだありません。</p>`;
+
+  adminReviewList.innerHTML = reviews.length ? reviews.map((review, index) => `
+    <article class="admin-item">
+      <div>
+        <h4>${review.course}</h4>
+        <p>${review.date || "日付未設定"} / ${review.name || "匿名"} / 評価 ${review.rating || "-"} / ${review.party || "-"}</p>
+        <p>${review.good || ""}</p>
+        ${review.tips ? `<p>注意点: ${review.tips}</p>` : ""}
+      </div>
+      <button class="button ghost danger" type="button" data-admin-delete-review="${index}">削除</button>
+    </article>
+  `).join("") : `<p class="empty">投稿レビューはまだありません。</p>`;
+}
+
+function openAdminPanel() {
+  adminUnlocked = true;
+  localStorage.setItem("gotsuAdminUnlocked", "true");
+  adminPanel.hidden = false;
+  adminLoginBox.hidden = true;
+  adminMessage.textContent = "";
+  renderAdmin();
 }
 
 function renderCategoryOptions() {
@@ -355,6 +419,7 @@ function saveBuiltCourse(event) {
   renderCourseOptions();
   renderCourses(document.querySelector(".filter.is-active").dataset.filter);
   renderTimeline();
+  renderAdmin();
   builderMessage.textContent = "コースを保存しました。日帰りコース案とレビュー投稿フォームに追加されています。";
   document.querySelector("#courses").scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -386,13 +451,16 @@ reviewForm.addEventListener("submit", (event) => {
   const form = new FormData(reviewForm);
   const review = Object.fromEntries(form.entries());
   review.recommend = form.getAll("recommend");
-  const saved = JSON.parse(localStorage.getItem("gotsuReviews") || "[]");
+  review.id = `review-${Date.now()}`;
+  review.createdAt = new Date().toISOString();
+  const saved = getSavedReviews();
   saved.unshift(review);
-  localStorage.setItem("gotsuReviews", JSON.stringify(saved));
+  saveReviews(saved);
   reviewForm.reset();
   courseSelect.value = selectedCourse.name;
   formMessage.textContent = "レビューを保存しました。下の一覧に追加されています。";
   renderReviews();
+  renderAdmin();
 });
 
 cardCategoryFilter.addEventListener("change", renderCardOptions);
@@ -412,6 +480,78 @@ selectedCards.addEventListener("click", (event) => {
   renderBuilderPreview();
 });
 
+adminLoginButton.addEventListener("click", () => {
+  if (adminPass.value === "gotsu-admin") {
+    openAdminPanel();
+    return;
+  }
+  adminMessage.textContent = "管理コードが違います。試作では gotsu-admin です。";
+});
+
+adminCourseList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-admin-delete-course]");
+  if (!button) return;
+  const courses = getUserCourses();
+  courses.splice(Number(button.dataset.adminDeleteCourse), 1);
+  saveUserCourses(courses);
+  selectedCourse = getAllCourses()[0];
+  renderCourseOptions();
+  renderCourses(document.querySelector(".filter.is-active").dataset.filter);
+  renderTimeline();
+  renderAdmin();
+});
+
+adminReviewList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-admin-delete-review]");
+  if (!button) return;
+  const reviews = getSavedReviews();
+  reviews.splice(Number(button.dataset.adminDeleteReview), 1);
+  saveReviews(reviews);
+  renderReviews();
+  renderAdmin();
+});
+
+exportDataButton.addEventListener("click", () => {
+  adminDataBox.value = JSON.stringify({
+    exportedAt: new Date().toISOString(),
+    courses: getUserCourses(),
+    reviews: getSavedReviews()
+  }, null, 2);
+});
+
+importDataButton.addEventListener("click", () => {
+  try {
+    const data = JSON.parse(adminDataBox.value);
+    if (!Array.isArray(data.courses) || !Array.isArray(data.reviews)) {
+      throw new Error("Invalid data shape");
+    }
+    saveUserCourses(data.courses);
+    saveReviews(data.reviews);
+    selectedCourse = getAllCourses()[0];
+    renderCourseOptions();
+    renderCourses(document.querySelector(".filter.is-active").dataset.filter);
+    renderTimeline();
+    renderReviews();
+    renderAdmin();
+    adminMessage.textContent = "JSONから復元しました。";
+  } catch (error) {
+    adminMessage.textContent = "JSONの形式を確認してください。";
+  }
+});
+
+clearAllUserDataButton.addEventListener("click", () => {
+  const ok = window.confirm("ユーザー作成コースと投稿レビューをすべて削除します。よろしいですか？");
+  if (!ok) return;
+  saveUserCourses([]);
+  saveReviews([]);
+  selectedCourse = defaultCourses[0];
+  renderCourseOptions();
+  renderCourses(document.querySelector(".filter.is-active").dataset.filter);
+  renderTimeline();
+  renderReviews();
+  renderAdmin();
+});
+
 async function init() {
   const response = await fetch("cards.json");
   allCards = await response.json();
@@ -422,6 +562,7 @@ async function init() {
   renderCourses();
   renderTimeline();
   renderReviews();
+  if (adminUnlocked) openAdminPanel();
 }
 
 init().catch((error) => {
