@@ -120,6 +120,11 @@ const courseGrid = document.querySelector("#courseGrid");
 const timeline = document.querySelector("#timeline");
 const selectedCourseName = document.querySelector("#selectedCourseName");
 const selectedCourseSummary = document.querySelector("#selectedCourseSummary");
+const courseMapFrame = document.querySelector("#courseMapFrame");
+const googleMapLink = document.querySelector("#googleMapLink");
+const mapCourseName = document.querySelector("#mapCourseName");
+const mapSummary = document.querySelector("#mapSummary");
+const mapStops = document.querySelector("#mapStops");
 const courseSelect = document.querySelector("#courseSelect");
 const reviewForm = document.querySelector("#reviewForm");
 const reviewList = document.querySelector("#reviewList");
@@ -304,6 +309,50 @@ function cardToStep(card) {
   ];
 }
 
+function placeQuery(step) {
+  return `${step[1]} 江津市 島根県`;
+}
+
+function buildGoogleDirectionsUrl(course) {
+  const stops = course.steps.map(placeQuery);
+  if (!stops.length) {
+    return "https://www.google.com/maps/search/?api=1&query=%E6%B1%9F%E6%B4%A5%E5%B8%82";
+  }
+  if (stops.length === 1) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stops[0])}`;
+  }
+  const origin = stops[0];
+  const destination = stops[stops.length - 1];
+  const waypoints = stops.slice(1, -1).slice(0, 8).join("|");
+  const params = new URLSearchParams({
+    api: "1",
+    origin,
+    destination,
+    travelmode: "driving"
+  });
+  if (waypoints) params.set("waypoints", waypoints);
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
+function renderMap() {
+  if (!courseMapFrame || !googleMapLink || !mapCourseName || !mapSummary || !mapStops) return;
+  const firstStep = selectedCourse.steps[0];
+  const query = firstStep ? placeQuery(firstStep) : "江津市 島根県";
+  courseMapFrame.src = `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
+  googleMapLink.href = buildGoogleDirectionsUrl(selectedCourse);
+  mapCourseName.textContent = selectedCourse.name;
+  mapSummary.textContent = "地点名からGoogleマップ検索を作成しています。公開前に実際の場所と経路を確認してください。";
+  mapStops.innerHTML = selectedCourse.steps.map((step, index) => `
+    <article class="map-stop">
+      <span>${index + 1}</span>
+      <div>
+        <strong>${step[1]}</strong>
+        <small>${step[0]} / ${step[2]}</small>
+      </div>
+    </article>
+  `).join("");
+}
+
 function renderCourses(filter = "all") {
   const courses = getAllCourses();
   const visible = courses.filter((course) => filter === "all" || course.tags.includes(filter));
@@ -341,6 +390,7 @@ function renderTimeline() {
     </article>
   `).join("");
   courseSelect.value = selectedCourse.name;
+  renderMap();
 }
 
 function renderCourseOptions() {

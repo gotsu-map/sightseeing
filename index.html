@@ -13,9 +13,10 @@
         <a href="#courses">日帰りコース案</a>
         <a href="#builder">コース作成</a>
         <a href="#route">行程</a>
+        <a href="#map">地図</a>
         <a href="#review">レビュー投稿</a>
         <a href="#reviews">レビュー</a>
-        <a href="#admin">管理</a>
+        <a href="admin.html">管理</a>
       </nav>
     </header>
 
@@ -140,6 +141,29 @@
         <div id="timeline" class="timeline"></div>
       </section>
 
+      <section id="map" class="section map-section">
+        <div class="section-heading">
+          <p class="eyebrow">Route map</p>
+          <h2>Googleマップで見る</h2>
+          <p>
+            選択中のコースを地図で確認できます。埋め込み地図は代表地点を表示し、
+            詳細な経路はGoogleマップで開けます。
+          </p>
+        </div>
+        <div class="map-layout">
+          <div class="map-frame-wrap">
+            <iframe id="courseMapFrame" title="選択中コースのGoogleマップ" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
+          </div>
+          <aside class="map-panel">
+            <h3 id="mapCourseName">コース地図</h3>
+            <p id="mapSummary"></p>
+            <a id="googleMapLink" class="button primary" target="_blank" rel="noopener">Googleマップで経路を開く</a>
+            <p class="map-fallback">地図が表示されない場合は、上のボタンからGoogleマップを開いてください。</p>
+            <div id="mapStops" class="map-stops"></div>
+          </aside>
+        </div>
+      </section>
+
       <section id="review" class="section review-layout">
         <div class="section-heading sticky-note">
           <p class="eyebrow">Review form</p>
@@ -249,7 +273,7 @@
         <div id="reviewList" class="review-list"></div>
       </section>
 
-      <section id="admin" class="section admin-section">
+      <section id="admin" class="section admin-section" hidden>
         <div class="section-heading">
           <p class="eyebrow">Admin console</p>
           <h2>管理者画面</h2>
