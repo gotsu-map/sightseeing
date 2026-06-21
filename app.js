@@ -153,6 +153,7 @@ let selectedCourse = defaultCourses[0];
 let adminUnlocked = false;
 let backendMode = "local";
 let backendClient = null;
+const USER_COURSE_TAG = "ユーザー作成";
 
 function setupBackend() {
   const config = window.GOTSU_BACKEND || {};
@@ -182,8 +183,27 @@ function ensureItemId(item, prefix) {
   return {
     ...item,
     id: item.id || createId(prefix),
-    createdAt: item.createdAt || new Date().toISOString()
+    createdAt: item.createdAt || new Date().toISOString(),
+    tags: Array.isArray(item.tags) ? normalizeCourseTags(item.tags) : item.tags
   };
+}
+
+function normalizeCourseTags(tags) {
+  const cleaned = [];
+  let hasUserTag = false;
+
+  tags.forEach((tag) => {
+    const value = String(tag || "").trim();
+    if (!value) return;
+    if (value === USER_COURSE_TAG || value === "ユーザ作成") {
+      hasUserTag = true;
+      return;
+    }
+    if (!cleaned.includes(value)) cleaned.push(value);
+  });
+
+  if (hasUserTag) cleaned.push(USER_COURSE_TAG);
+  return cleaned;
 }
 
 function mergeSharedItems(remoteItems, localItems, prefix) {
@@ -376,7 +396,7 @@ function renderCourses(filter = "all") {
     <button class="course-card ${course.id === selectedCourse.id ? "is-selected" : ""}" type="button" data-course="${course.id}">
       <div class="course-meta">
         <span class="pill">${course.source}</span>
-        ${course.tags.map((tag) => `<span class="pill">${tag}</span>`).join("")}
+        ${course.tags.filter((tag) => tag !== course.source).map((tag) => `<span class="pill">${tag}</span>`).join("")}
       </div>
       <h3>${course.name}</h3>
       <p>${course.target}</p>
@@ -549,12 +569,13 @@ async function saveBuiltCourse(event) {
   const form = new FormData(builderForm);
   const summary = summarizeCards(builderCards);
   const theme = form.get("newCourseTheme");
+  const tags = normalizeCourseTags([theme, USER_COURSE_TAG]);
   const course = {
     id: createId("user"),
     createdAt: new Date().toISOString(),
     source: "ユーザー作成",
     name: form.get("newCourseName").trim(),
-    tags: [...new Set([theme, "ユーザー作成"])],
+    tags,
     target: form.get("newCourseTarget").trim(),
     time: summary.time,
     cost: summary.cost,
