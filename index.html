@@ -13,7 +13,6 @@
         <a href="#courses">日帰りコース案</a>
         <a href="#builder">コース作成</a>
         <a href="#route">行程</a>
-        <a href="#map">地図</a>
         <a href="#review">レビュー投稿</a>
         <a href="#reviews">レビュー</a>
         <a href="admin.html">管理ログイン</a>
@@ -34,11 +33,9 @@
             <a class="button ghost" href="#courses">コース案を見る</a>
           </div>
         </div>
-        <div class="card-stack" aria-label="観光カードの例">
-          <img src="assets/card-c003-03.png" alt="江津本町甍街道さんぽの観光カード">
-          <img src="assets/card-r001-51.png" alt="有福温泉街レトロ散策の観光カード">
-          <img src="assets/card-c001-01.png" alt="しまね海洋館アクアス見学の観光カード">
-        </div>
+        <figure class="hero-photo">
+          <img src="assets/hero-travel-gotsu.png" alt="海沿いの道をめぐる江津の日帰り旅行をイメージした写真">
+        </figure>
       </section>
 
       <section id="courses" class="section">
@@ -139,30 +136,6 @@
           <p id="selectedCourseSummary"></p>
         </div>
         <div id="timeline" class="timeline"></div>
-      </section>
-
-      <section id="map" class="section map-section">
-        <div class="section-heading">
-          <p class="eyebrow">Route map</p>
-          <h2>Googleマップで見る</h2>
-          <p>
-            選択中のコースを地図で確認できます。埋め込み地図は代表地点を表示し、
-            詳細な経路はGoogleマップで開けます。
-          </p>
-        </div>
-        <div class="map-layout">
-          <div class="map-frame-wrap">
-            <iframe id="courseMapFrame" title="選択中コースのGoogleマップ" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
-            <div id="mapPreview" class="map-preview"></div>
-          </div>
-          <aside class="map-panel">
-            <h3 id="mapCourseName">コース地図</h3>
-            <p id="mapSummary"></p>
-            <a id="googleMapLink" class="button primary" target="_blank" rel="noopener">Googleマップで経路を開く</a>
-            <p class="map-fallback">Googleの埋め込み表示はAPIキーが必要です。通常は上のボタンからGoogleマップを開いてください。</p>
-            <div id="mapStops" class="map-stops"></div>
-          </aside>
-        </div>
       </section>
 
       <section id="review" class="section review-layout">

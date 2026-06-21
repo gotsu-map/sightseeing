@@ -120,12 +120,6 @@ const courseGrid = document.querySelector("#courseGrid");
 const timeline = document.querySelector("#timeline");
 const selectedCourseName = document.querySelector("#selectedCourseName");
 const selectedCourseSummary = document.querySelector("#selectedCourseSummary");
-const courseMapFrame = document.querySelector("#courseMapFrame");
-const mapPreview = document.querySelector("#mapPreview");
-const googleMapLink = document.querySelector("#googleMapLink");
-const mapCourseName = document.querySelector("#mapCourseName");
-const mapSummary = document.querySelector("#mapSummary");
-const mapStops = document.querySelector("#mapStops");
 const courseSelect = document.querySelector("#courseSelect");
 const reviewForm = document.querySelector("#reviewForm");
 const reviewList = document.querySelector("#reviewList");
@@ -350,93 +344,6 @@ function cardToStep(card) {
   ];
 }
 
-function placeQuery(step) {
-  return `${step[1]} 江津市 島根県`;
-}
-
-function buildGoogleDirectionsUrl(course) {
-  const stops = course.steps.map(placeQuery);
-  if (!stops.length) {
-    return "https://www.google.com/maps/search/?api=1&query=%E6%B1%9F%E6%B4%A5%E5%B8%82";
-  }
-  if (stops.length === 1) {
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stops[0])}`;
-  }
-  const origin = stops[0];
-  const destination = stops[stops.length - 1];
-  const waypoints = stops.slice(1, -1).slice(0, 8).join("|");
-  const params = new URLSearchParams({
-    api: "1",
-    origin,
-    destination,
-    travelmode: "driving"
-  });
-  if (waypoints) params.set("waypoints", waypoints);
-  return `https://www.google.com/maps/dir/?${params.toString()}`;
-}
-
-function buildGoogleEmbedUrl(course) {
-  const key = window.GOTSU_BACKEND?.googleMapsEmbedApiKey;
-  if (!key) return "";
-
-  const stops = course.steps.map(placeQuery);
-  if (!stops.length) {
-    return `https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(key)}&q=${encodeURIComponent("江津市 島根県")}`;
-  }
-  if (stops.length === 1) {
-    return `https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(key)}&q=${encodeURIComponent(stops[0])}`;
-  }
-
-  const params = new URLSearchParams({
-    key,
-    origin: stops[0],
-    destination: stops[stops.length - 1],
-    mode: "driving"
-  });
-  const waypoints = stops.slice(1, -1).slice(0, 8).join("|");
-  if (waypoints) params.set("waypoints", waypoints);
-  return `https://www.google.com/maps/embed/v1/directions?${params.toString()}`;
-}
-
-function renderMap() {
-  if (!courseMapFrame || !mapPreview || !googleMapLink || !mapCourseName || !mapSummary || !mapStops) return;
-  const directionsUrl = buildGoogleDirectionsUrl(selectedCourse);
-  const embedUrl = buildGoogleEmbedUrl(selectedCourse);
-  if (embedUrl) {
-    courseMapFrame.hidden = false;
-    courseMapFrame.src = embedUrl;
-    mapPreview.hidden = true;
-  } else {
-    courseMapFrame.hidden = true;
-    courseMapFrame.removeAttribute("src");
-    mapPreview.hidden = false;
-    mapPreview.innerHTML = `
-      <h3>Googleマップ経路プレビュー</h3>
-      <p>Googleマップの埋め込み表示にはAPIキーが必要です。このサイト内では訪問順を表示し、実際の経路はGoogleマップで開きます。</p>
-      <div class="map-preview-route">
-        ${selectedCourse.steps.map((step, index) => `
-          <div class="map-preview-stop">
-            <span>${index + 1}</span>
-            <strong>${step[1]}</strong>
-          </div>
-        `).join("")}
-      </div>
-    `;
-  }
-  googleMapLink.href = directionsUrl;
-  mapCourseName.textContent = selectedCourse.name;
-  mapSummary.textContent = "地点名からGoogleマップ経路を作成しています。ボタンを押すとGoogleマップで経路を確認できます。";
-  mapStops.innerHTML = selectedCourse.steps.map((step, index) => `
-    <article class="map-stop">
-      <span>${index + 1}</span>
-      <div>
-        <strong>${step[1]}</strong>
-        <small>${step[0]} / ${step[2]}</small>
-      </div>
-    </article>
-  `).join("");
-}
-
 function renderCourses(filter = "all") {
   const courses = getAllCourses();
   const visible = courses.filter((course) => filter === "all" || course.tags.includes(filter));
@@ -474,7 +381,6 @@ function renderTimeline() {
     </article>
   `).join("");
   courseSelect.value = selectedCourse.name;
-  renderMap();
 }
 
 function renderCourseOptions() {
@@ -665,7 +571,7 @@ courseGrid.addEventListener("click", (event) => {
   selectedCourse = getAllCourses().find((course) => course.id === card.dataset.course);
   renderCourses(document.querySelector(".filter.is-active").dataset.filter);
   renderTimeline();
-  document.querySelector("#map").scrollIntoView({ behavior: "smooth", block: "start" });
+  document.querySelector("#route").scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
 courseSelect.addEventListener("change", () => {
