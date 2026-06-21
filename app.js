@@ -120,6 +120,7 @@ const courseGrid = document.querySelector("#courseGrid");
 const timeline = document.querySelector("#timeline");
 const selectedCourseName = document.querySelector("#selectedCourseName");
 const selectedCourseSummary = document.querySelector("#selectedCourseSummary");
+const googleRouteLink = document.querySelector("#googleRouteLink");
 const courseSelect = document.querySelector("#courseSelect");
 const reviewForm = document.querySelector("#reviewForm");
 const reviewList = document.querySelector("#reviewList");
@@ -344,6 +345,30 @@ function cardToStep(card) {
   ];
 }
 
+function placeQuery(step) {
+  return `${step[1]} 江津市 島根県`;
+}
+
+function buildGoogleDirectionsUrl(course) {
+  const stops = (course.steps || []).map(placeQuery);
+  if (!stops.length) {
+    return "https://www.google.com/maps/search/?api=1&query=%E6%B1%9F%E6%B4%A5%E5%B8%82";
+  }
+  if (stops.length === 1) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stops[0])}`;
+  }
+
+  const params = new URLSearchParams({
+    api: "1",
+    origin: stops[0],
+    destination: stops[stops.length - 1],
+    travelmode: "driving"
+  });
+  const waypoints = stops.slice(1, -1).slice(0, 8).join("|");
+  if (waypoints) params.set("waypoints", waypoints);
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
 function renderCourses(filter = "all") {
   const courses = getAllCourses();
   const visible = courses.filter((course) => filter === "all" || course.tags.includes(filter));
@@ -371,6 +396,9 @@ function renderCourses(filter = "all") {
 function renderTimeline() {
   selectedCourseName.textContent = selectedCourse.name;
   selectedCourseSummary.textContent = selectedCourse.summary;
+  if (googleRouteLink) {
+    googleRouteLink.href = buildGoogleDirectionsUrl(selectedCourse);
+  }
   timeline.innerHTML = selectedCourse.steps.map((step, index) => `
     <article class="timeline-item">
       <span class="timeline-number">${index + 1}</span>

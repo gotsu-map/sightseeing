@@ -296,6 +296,11 @@ h3 {
     linear-gradient(180deg, #f3f0e7, #ebe5d6);
 }
 
+.route-map-link {
+  display: inline-flex;
+  margin-top: 16px;
+}
+
 .builder-section {
   background: #f7f6ef;
 }
